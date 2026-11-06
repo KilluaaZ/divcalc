@@ -164,7 +164,7 @@ jobs:
                   android:gravity="end"
                   android:singleLine="true"
                   android:textColor="#AAAAAA"
-                  android:textSize="14sp" />
+                  android:textSize="20sp" />
               <TextView
                   android:id="@+id/res"
                   android:layout_width="match_parent"
@@ -172,7 +172,7 @@ jobs:
                   android:gravity="end"
                   android:singleLine="true"
                   android:textColor="#FFFFFF"
-                  android:textSize="30sp" />
+                  android:textSize="36sp" />
           EOF
           btn() { echo "        <Button android:id=\"@+id/$1\" android:layout_width=\"0dp\" android:layout_height=\"match_parent\" android:layout_weight=\"$3\" android:layout_margin=\"2dp\" android:padding=\"0dp\" android:minWidth=\"0dp\" android:minHeight=\"0dp\" android:background=\"@drawable/btn_bg\" android:textColor=\"#FFFFFF\" android:textSize=\"22sp\" android:text=\"$2\" />" >> $L; }
           row() { echo '    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">' >> $L; }
@@ -180,7 +180,7 @@ jobs:
           row; btn k7 7 1; btn k8 8 1; btn k9 9 1; btn kdel DEL 1; endrow
           row; btn k4 4 1; btn k5 5 1; btn k6 6 1; btn kclr C 1; endrow
           row; btn k1 1 1; btn k2 2 1; btn k3 3 1; btn k00 00 1; endrow
-          row; btn k0 0 3; btn kdot . 1; endrow
+          row; btn k0 0 3; btn kdot , 1; endrow
           echo '</LinearLayout>' >> $L
 
           cat > app/src/main/java/com/example/divcalc/CalcWidget.java <<'EOF'
@@ -260,15 +260,6 @@ jobs:
                   }
               }
 
-              static String symbol(String op) {
-                  switch (op) {
-                      case "*": return "\u00d7";
-                      case "+": return "+";
-                      case "-": return "\u2212";
-                      default: return "\u00f7";
-                  }
-              }
-
               static String compute(String in, String div, String op) {
                   try {
                       BigDecimal a = (in.isEmpty() || in.equals(".")) ? BigDecimal.ZERO : new BigDecimal(in);
@@ -288,10 +279,10 @@ jobs:
                               if (b.signum() == 0) {
                                   return "n/a";
                               }
-                              r = a.divide(b, 8, RoundingMode.HALF_UP);
+                              r = a.divide(b, 2, RoundingMode.HALF_UP);
                       }
-                      r = r.setScale(8, RoundingMode.HALF_UP).stripTrailingZeros();
-                      return r.toPlainString();
+                      r = r.setScale(2, RoundingMode.HALF_UP);
+                      return r.toPlainString().replace('.', ',');
                   } catch (Exception e) {
                       return "?";
                   }
@@ -303,9 +294,11 @@ jobs:
                   String div = p.getString("div_" + id, "53");
                   String op = p.getString("op_" + id, "/");
 
+                  String typed = (in.isEmpty() ? "0" : in).replace('.', ',');
+
                   RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget);
-                  v.setTextViewText(R.id.disp, (in.isEmpty() ? "0" : in) + " " + symbol(op) + " " + div);
-                  v.setTextViewText(R.id.res, "= " + compute(in, div, op));
+                  v.setTextViewText(R.id.disp, typed + " TL");
+                  v.setTextViewText(R.id.res, "= " + compute(in, div, op) + " \u20ac");
 
                   for (int k = 0; k < IDS.length; k++) {
                       Intent it = new Intent(c, CalcWidget.class);
@@ -390,7 +383,7 @@ jobs:
                   save.setOnClickListener(v -> {
                       BigDecimal d;
                       try {
-                          d = new BigDecimal(et.getText().toString().trim());
+                          d = new BigDecimal(et.getText().toString().trim().replace(',', '.'));
                       } catch (Exception e) {
                           Toast.makeText(this, "Enter a valid number", Toast.LENGTH_SHORT).show();
                           return;
