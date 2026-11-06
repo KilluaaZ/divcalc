@@ -1,0 +1,204 @@
+name: Build DivCalc APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Generate Android project
+        run: |
+          mkdir -p app/src/main/java/com/example/divcalc
+          mkdir -p app/src/main/res/layout app/src/main/res/xml app/src/main/res/drawable
+
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "DivCalc"
+          include(":app")
+          EOF
+
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2g
+          EOF
+
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+          }
+
+          android {
+              namespace = "com.example.divcalc"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.example.divcalc"
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:label="DivCalc"
+                  android:allowBackup="false"
+                  android:icon="@android:drawable/sym_def_app_icon">
+
+                  <receiver
+                      android:name=".CalcWidget"
+                      android:label="DivCalc"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="android.appwidget.provider"
+                          android:resource="@xml/widget_info" />
+                  </receiver>
+
+                  <activity
+                      android:name=".ConfigActivity"
+                      android:exported="true"
+                      android:theme="@android:style/Theme.DeviceDefault.Light.Dialog">
+                      <intent-filter>
+                          <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/res/xml/widget_info.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+              android:minWidth="250dp"
+              android:minHeight="320dp"
+              android:targetCellWidth="4"
+              android:targetCellHeight="4"
+              android:updatePeriodMillis="0"
+              android:initialLayout="@layout/widget"
+              android:configure="com.example.divcalc.ConfigActivity"
+              android:widgetCategory="home_screen"
+              android:resizeMode="horizontal|vertical"
+              android:widgetFeatures="reconfigurable" />
+          EOF
+
+          cat > app/src/main/res/drawable/widget_bg.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#E6202124" />
+              <corners android:radius="20dp" />
+          </shape>
+          EOF
+
+          cat > app/src/main/res/drawable/btn_bg.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <ripple xmlns:android="http://schemas.android.com/apk/res/android"
+              android:color="#66FFFFFF">
+              <item>
+                  <shape android:shape="rectangle">
+                      <solid android:color="#FF3C4043" />
+                      <corners android:radius="12dp" />
+                  </shape>
+              </item>
+          </ripple>
+          EOF
+
+          L=app/src/main/res/layout/widget.xml
+          cat > $L <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical"
+              android:padding="8dp"
+              android:background="@drawable/widget_bg">
+              <TextView
+                  android:id="@+id/disp"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="end"
+                  android:singleLine="true"
+                  android:textColor="#AAAAAA"
+                  android:textSize="14sp" />
+              <TextView
+                  android:id="@+id/res"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="end"
+                  android:singleLine="true"
+                  android:textColor="#FFFFFF"
+                  android:textSize="30sp" />
+          EOF
+          btn() { echo "        <Button android:id=\"@+id/$1\" android:layout_width=\"0dp\" android:layout_height=\"match_parent\" android:layout_weight=\"$3\" android:layout_margin=\"2dp\" android:padding=\"0dp\" android:minWidth=\"0dp\" android:minHeight=\"0dp\" android:background=\"@drawable/btn_bg\" android:textColor=\"#FFFFFF\" android:textSize=\"22sp\" android:text=\"$2\" />" >> $L; }
+          row() { echo '    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">' >> $L; }
+          endrow() { echo '    </LinearLayout>' >> $L; }
+          row; btn k7 7 1; btn k8 8 1; btn k9 9 1; btn kdel DEL 1; endrow
+          row; btn k4 4 1; btn k5 5 1; btn k6 6 1; btn kclr C 1; endrow
+          row; btn k1 1 1; btn k2 2 1; btn k3 3 1; btn k00 00 1; endrow
+          row; btn k0 0 3; btn kdot . 1; endrow
+          echo '</LinearLayout>' >> $L
+
+          cat > app/src/main/java/com/example/divcalc/CalcWidget.java <<'EOF'
+          package com.example.divcalc;
+
+          import android.app.PendingIntent;
+          import android.appwidget.AppWidgetManager;
+          import android.appwidget.AppWidgetProvider;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.widget.RemoteViews;
+          import java.math.BigDecimal;
+          import java.math.RoundingMode;
+
+          public class CalcWidget extends AppWidgetProvider {
+              static final String ACTION_KEY = "com.example.divcalc.KEY";
+              static final String PREFS = "divcalc";
+              static final int[] IDS = {
+                  R.id.k0, R.id.k1, R.id.k2, R.id.k3, R.id.k4, R.id.k5, R.id.k6,
+                  R.id.k7, R.id.k8, R.id.k9, R
