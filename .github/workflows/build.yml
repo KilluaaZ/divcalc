@@ -321,7 +321,7 @@ jobs:
               static void update(Context c, AppWidgetManager m, int id) {
                   SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                   String in = p.getString("in_" + id, "");
-                  String div = p.getString("div_" + id, "53");
+                  String div = p.getString("div_" + id, "");
                   String op = p.getString("op_" + id, "/");
                   String inL = p.getString("inl_" + id, DEF_IN);
                   String outL = p.getString("outl_" + id, DEF_OUT);
@@ -448,7 +448,7 @@ jobs:
                   etNum.setInputType(InputType.TYPE_CLASS_NUMBER
                       | InputType.TYPE_NUMBER_FLAG_DECIMAL
                       | InputType.TYPE_NUMBER_FLAG_SIGNED);
-                  etNum.setText(p.getString("div_" + widgetId, "53"));
+                  etNum.setText(p.getString("div_" + widgetId, ""));
 
                   Button save = new Button(this);
                   save.setText("Save");
