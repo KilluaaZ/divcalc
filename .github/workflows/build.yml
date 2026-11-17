@@ -322,7 +322,7 @@ jobs:
                   SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                   String in = p.getString("in_" + id, "");
                   String div = p.getString("div_" + id, "");
-                  String op = p.getString("op_" + id, "/");
+                  String op = p.getString("op_" + id, "*");
                   String inL = p.getString("inl_" + id, DEF_IN);
                   String outL = p.getString("outl_" + id, DEF_OUT);
 
@@ -371,7 +371,7 @@ jobs:
           import java.math.BigDecimal;
 
           public class ConfigActivity extends Activity {
-              static final String[] OPS = {"/", "*", "+", "-"};
+              static final String[] OPS = {"*", "/", "+", "-"};
               private int widgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
 
               private int dp(int v) {
@@ -419,7 +419,7 @@ jobs:
                   final EditText etIn = labelBox(p.getString("inl_" + widgetId, CalcWidget.DEF_IN));
                   final EditText etOut = labelBox(p.getString("outl_" + widgetId, CalcWidget.DEF_OUT));
 
-                  String[] labels = {"\u00f7  divide by", "\u00d7  multiply by", "+  add", "\u2212  subtract"};
+                  String[] labels = {"\u00d7  multiply by", "\u00f7  divide by", "+  add", "\u2212  subtract"};
                   final Spinner sp = new Spinner(this);
                   ArrayAdapter<String> ad = new ArrayAdapter<String>(
                           this, android.R.layout.simple_spinner_dropdown_item, labels) {
@@ -437,7 +437,7 @@ jobs:
                       }
                   };
                   sp.setAdapter(ad);
-                  String cur = p.getString("op_" + widgetId, "/");
+                  String cur = p.getString("op_" + widgetId, "*");
                   for (int i = 0; i < OPS.length; i++) {
                       if (OPS[i].equals(cur)) {
                           sp.setSelection(i);
