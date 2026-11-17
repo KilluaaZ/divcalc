@@ -148,6 +148,22 @@ jobs:
           </ripple>
           EOF
 
+          cat > app/src/main/res/drawable/ic_backspace.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="1.7"
+                  android:strokeLineJoin="round"
+                  android:strokeLineCap="round"
+                  android:pathData="M9,5 L20,5 A2,2 0 0 1 22,7 L22,17 A2,2 0 0 1 20,19 L9,19 L3,12 Z M12.75,9.25 L18.25,14.75 M18.25,9.25 L12.75,14.75" />
+          </vector>
+          EOF
+
           L=app/src/main/res/layout/widget.xml
           cat > $L <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
@@ -175,12 +191,22 @@ jobs:
                   android:textSize="48sp" />
           EOF
           btn() { echo "        <Button android:id=\"@+id/$1\" android:layout_width=\"0dp\" android:layout_height=\"match_parent\" android:layout_weight=\"$3\" android:layout_margin=\"2dp\" android:padding=\"0dp\" android:minWidth=\"0dp\" android:minHeight=\"0dp\" android:background=\"@drawable/btn_bg\" android:textColor=\"#FFFFFF\" android:textSize=\"22sp\" android:text=\"$2\" />" >> $L; }
+          vbtn() { echo "        <Button android:id=\"@+id/$1\" android:layout_width=\"match_parent\" android:layout_height=\"0dp\" android:layout_weight=\"$3\" android:layout_margin=\"2dp\" android:padding=\"0dp\" android:minWidth=\"0dp\" android:minHeight=\"0dp\" android:background=\"@drawable/btn_bg\" android:textColor=\"#FFFFFF\" android:textSize=\"22sp\" android:text=\"$2\" />" >> $L; }
+          vimg() { echo "        <ImageButton android:id=\"@+id/$1\" android:layout_width=\"match_parent\" android:layout_height=\"0dp\" android:layout_weight=\"$2\" android:layout_margin=\"2dp\" android:padding=\"18dp\" android:scaleType=\"fitCenter\" android:background=\"@drawable/btn_bg\" android:src=\"@drawable/ic_backspace\" android:contentDescription=\"Backspace\" />" >> $L; }
           row() { echo '    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">' >> $L; }
           endrow() { echo '    </LinearLayout>' >> $L; }
-          row; btn k7 7 1; btn k8 8 1; btn k9 9 1; btn kdel DEL 1; endrow
-          row; btn k4 4 1; btn k5 5 1; btn k6 6 1; btn kclr C 1; endrow
-          row; btn k1 1 1; btn k2 2 1; btn k3 3 1; btn k00 00 1; endrow
-          row; btn k0 0 3; btn kdot , 1; endrow
+          echo '    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="3" android:orientation="horizontal">' >> $L
+          echo '      <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="3" android:orientation="vertical">' >> $L
+          row; btn k7 7 1; btn k8 8 1; btn k9 9 1; endrow
+          row; btn k4 4 1; btn k5 5 1; btn k6 6 1; endrow
+          row; btn k1 1 1; btn k2 2 1; btn k3 3 1; endrow
+          echo '      </LinearLayout>' >> $L
+          echo '      <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">' >> $L
+          vimg kdel 1
+          vbtn kclr C 1
+          echo '      </LinearLayout>' >> $L
+          echo '    </LinearLayout>' >> $L
+          row; btn k0 0 2; btn kdot , 2; endrow
           echo '</LinearLayout>' >> $L
 
           cat > app/src/main/java/com/example/divcalc/CalcWidget.java <<'EOF'
@@ -199,12 +225,14 @@ jobs:
           public class CalcWidget extends AppWidgetProvider {
               static final String ACTION_KEY = "com.example.divcalc.KEY";
               static final String PREFS = "divcalc";
+              static final String DEF_IN = "";
+              static final String DEF_OUT = "";
               static final int[] IDS = {
                   R.id.k0, R.id.k1, R.id.k2, R.id.k3, R.id.k4, R.id.k5, R.id.k6,
-                  R.id.k7, R.id.k8, R.id.k9, R.id.kdot, R.id.k00, R.id.kdel, R.id.kclr
+                  R.id.k7, R.id.k8, R.id.k9, R.id.kdot, R.id.kdel, R.id.kclr
               };
               static final String[] KEYS = {
-                  "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "00", "DEL", "CLR"
+                  "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "DEL", "CLR"
               };
 
               @Override
@@ -221,6 +249,8 @@ jobs:
                       e.remove("in_" + id);
                       e.remove("div_" + id);
                       e.remove("op_" + id);
+                      e.remove("inl_" + id);
+                      e.remove("outl_" + id);
                   }
                   e.apply();
               }
@@ -243,10 +273,6 @@ jobs:
                               if (key.equals(".")) {
                                   if (!s.contains(".")) {
                                       s = s.isEmpty() ? "0." : s + ".";
-                                  }
-                              } else if (key.equals("00")) {
-                                  if (!s.isEmpty() && !s.equals("0")) {
-                                      s = s + "00";
                                   }
                               } else {
                                   s = s.equals("0") ? key : s + key;
@@ -288,17 +314,23 @@ jobs:
                   }
               }
 
+              static String withLabel(String text, String label) {
+                  return label.isEmpty() ? text : text + " " + label;
+              }
+
               static void update(Context c, AppWidgetManager m, int id) {
                   SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                   String in = p.getString("in_" + id, "");
                   String div = p.getString("div_" + id, "53");
                   String op = p.getString("op_" + id, "/");
+                  String inL = p.getString("inl_" + id, DEF_IN);
+                  String outL = p.getString("outl_" + id, DEF_OUT);
 
                   String typed = (in.isEmpty() ? "0" : in).replace('.', ',');
 
                   RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget);
-                  v.setTextViewText(R.id.disp, typed + " TL");
-                  v.setTextViewText(R.id.res, "= " + compute(in, div, op) + " \u20ac");
+                  v.setTextViewText(R.id.disp, withLabel(typed, inL));
+                  v.setTextViewText(R.id.res, withLabel("= " + compute(in, div, op), outL));
 
                   for (int k = 0; k < IDS.length; k++) {
                       Intent it = new Intent(c, CalcWidget.class);
@@ -323,11 +355,16 @@ jobs:
           import android.content.Intent;
           import android.content.SharedPreferences;
           import android.os.Bundle;
+          import android.text.InputFilter;
           import android.text.InputType;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.ViewGroup;
           import android.widget.ArrayAdapter;
           import android.widget.Button;
           import android.widget.EditText;
           import android.widget.LinearLayout;
+          import android.widget.ScrollView;
           import android.widget.Spinner;
           import android.widget.TextView;
           import android.widget.Toast;
@@ -336,6 +373,28 @@ jobs:
           public class ConfigActivity extends Activity {
               static final String[] OPS = {"/", "*", "+", "-"};
               private int widgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
+
+              private int dp(int v) {
+                  return (int) (v * getResources().getDisplayMetrics().density);
+              }
+
+              private TextView label(String s) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextSize(14);
+                  t.setTextColor(0xFF666666);
+                  t.setPadding(0, dp(14), 0, dp(2));
+                  return t;
+              }
+
+              private EditText labelBox(String value) {
+                  EditText e = new EditText(this);
+                  e.setInputType(InputType.TYPE_CLASS_TEXT);
+                  e.setSingleLine(true);
+                  e.setFilters(new InputFilter[] {new InputFilter.LengthFilter(8)});
+                  e.setText(value);
+                  return e;
+              }
 
               @Override
               protected void onCreate(Bundle b) {
@@ -353,18 +412,31 @@ jobs:
 
                   final SharedPreferences p = getSharedPreferences(CalcWidget.PREFS, MODE_PRIVATE);
 
-                  int pad = (int) (16 * getResources().getDisplayMetrics().density);
                   LinearLayout root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
-                  root.setPadding(pad, pad, pad, pad);
+                  root.setPadding(dp(16), dp(8), dp(16), dp(16));
 
-                  TextView title = new TextView(this);
-                  title.setText("Operation applied to every number you type:");
-                  title.setTextSize(16);
+                  final EditText etIn = labelBox(p.getString("inl_" + widgetId, CalcWidget.DEF_IN));
+                  final EditText etOut = labelBox(p.getString("outl_" + widgetId, CalcWidget.DEF_OUT));
 
                   String[] labels = {"\u00f7  divide by", "\u00d7  multiply by", "+  add", "\u2212  subtract"};
                   final Spinner sp = new Spinner(this);
-                  sp.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, labels));
+                  ArrayAdapter<String> ad = new ArrayAdapter<String>(
+                          this, android.R.layout.simple_spinner_dropdown_item, labels) {
+                      @Override
+                      public View getView(int position, View convertView, ViewGroup parent) {
+                          TextView t = (convertView instanceof TextView)
+                              ? (TextView) convertView : new TextView(getContext());
+                          t.setText(getItem(position));
+                          t.setTextColor(0xFF000000);
+                          t.setTextSize(18);
+                          t.setGravity(Gravity.CENTER_VERTICAL);
+                          t.setMinHeight(dp(56));
+                          t.setPadding(dp(8), 0, dp(8), 0);
+                          return t;
+                      }
+                  };
+                  sp.setAdapter(ad);
                   String cur = p.getString("op_" + widgetId, "/");
                   for (int i = 0; i < OPS.length; i++) {
                       if (OPS[i].equals(cur)) {
@@ -372,18 +444,18 @@ jobs:
                       }
                   }
 
-                  final EditText et = new EditText(this);
-                  et.setInputType(InputType.TYPE_CLASS_NUMBER
+                  final EditText etNum = new EditText(this);
+                  etNum.setInputType(InputType.TYPE_CLASS_NUMBER
                       | InputType.TYPE_NUMBER_FLAG_DECIMAL
                       | InputType.TYPE_NUMBER_FLAG_SIGNED);
-                  et.setText(p.getString("div_" + widgetId, "53"));
+                  etNum.setText(p.getString("div_" + widgetId, "53"));
 
                   Button save = new Button(this);
                   save.setText("Save");
                   save.setOnClickListener(v -> {
                       BigDecimal d;
                       try {
-                          d = new BigDecimal(et.getText().toString().trim().replace(',', '.'));
+                          d = new BigDecimal(etNum.getText().toString().trim().replace(',', '.'));
                       } catch (Exception e) {
                           Toast.makeText(this, "Enter a valid number", Toast.LENGTH_SHORT).show();
                           return;
@@ -396,6 +468,8 @@ jobs:
                       p.edit()
                           .putString("div_" + widgetId, d.toPlainString())
                           .putString("op_" + widgetId, OPS[idx])
+                          .putString("inl_" + widgetId, etIn.getText().toString().trim())
+                          .putString("outl_" + widgetId, etOut.getText().toString().trim())
                           .apply();
                       CalcWidget.update(this, AppWidgetManager.getInstance(this), widgetId);
                       Intent r = new Intent();
@@ -404,11 +478,23 @@ jobs:
                       finish();
                   });
 
-                  root.addView(title);
-                  root.addView(sp);
-                  root.addView(et);
-                  root.addView(save);
-                  setContentView(root);
+                  root.addView(label("Input text (shown after the number you type):"));
+                  root.addView(etIn);
+                  root.addView(label("Output text (shown after the result):"));
+                  root.addView(etOut);
+                  root.addView(label("Operation applied to every number you type:"));
+                  root.addView(sp, new LinearLayout.LayoutParams(
+                      ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
+                  root.addView(label("Number to use in the operation:"));
+                  root.addView(etNum);
+                  LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(
+                      ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                  saveLp.topMargin = dp(16);
+                  root.addView(save, saveLp);
+
+                  ScrollView sv = new ScrollView(this);
+                  sv.addView(root);
+                  setContentView(sv);
               }
           }
           EOF
